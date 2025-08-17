@@ -2,25 +2,46 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Logo di Tengah Atas</title>
+  <title>Parsing IAAS</title>
   <style>
     body {
-      margin: 0;
-      padding: 0;
       display: flex;
-      justify-content: center; /* Biar horizontal center */
-      align-items: flex-start; /* Biar di atas */
+      justify-content: center;
+      align-items: center;
       height: 100vh;
+      margin: 0;
+      background: linear-gradient(135deg, #1e9600, #56ab2f, #a8e063);
+      flex-direction: column;
+      font-family: Arial, sans-serif;
     }
     img {
-      margin-top: 20px; /* jarak dari atas */
-      max-width: 200px; /* atur ukuran logo */
+      width: 200px;
+      margin-bottom: 20px;
+    }
+    h1 {
+      color: white;
+      margin-bottom: 30px;
+    }
+    .btn {
+      display: inline-block;
+      padding: 12px 24px;
+      background-color: white;
+      color: #1e9600;
+      font-size: 16px;
+      font-weight: bold;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: 0.3s;
+    }
+    .btn:hover {
+      background-color: #1e9600;
+      color: white;
     }
   </style>
 </head>
 <body>
-  <!-- ganti 'logo.png' dengan nama file logo kamu -->
-  <img src="logo.png" alt="My Logo">
+  <img src="logo.png" alt="Logo IAAS">
+  <h1>Parsing IAAS 🚀</h1>
+  <a href="https://share.streamlit.io/faustusblack/ParsingIAAS/app.py" class="btn" target="_blank">Buka Aplikasi Parsing</a>
 </body>
 </html>
