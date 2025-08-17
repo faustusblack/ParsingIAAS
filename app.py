@@ -56,7 +56,7 @@ header h1 {
 # ====== Header dengan Logo IAAS ======
 st.markdown(f"""
 <header>
-  <img src="https://drive.google.com/uc?export=view&id=16yWl5h_HYgC65U1PCdZVUcFmocLDHFvz">
+  <img src="https://raw.githubusercontent.com/faustusblack/ParsingIAAS/main/logo.png">
   <h1>IAAS LC UNPAD – Rekap Data Formulir PDF</h1>
 </header>
 """, unsafe_allow_html=True)
