@@ -83,7 +83,9 @@ if uploaded_files:
     interest_options_map = {
         "Human development": ["Most Interested", "Interested", "Quite Interested", "Less Interested", "Not Interested"],
         "Social awareness/people empowerment": ["Most Interested", "Interested", "Quite Interested", "Less Interested", "Not Interested"],
-        "Design and public relations": ["Most Interested", "Interested", "Quite Interested", "Less Interested", "Not Interested"]
+        "Design and public relations": ["Most Interested", "Interested", "Quite Interested", "Less Interested", "Not Interested"],
+        "Exchange program and language": ["Most Interested", "Interested", "Quite Interested", "Less Interested", "Not Interested"],
+        "Science and technology": ["Most Interested", "Interested", "Quite Interested", "Less Interested", "Not Interested"]
     }
     
     # Ambil daftar bidang dan opsi sebagai list
@@ -115,18 +117,20 @@ if uploaded_files:
             # Temukan koordinat (y-axis) dari setiap bidang minat
             field_coords_map = {}
             for field in interest_fields:
+                field_words = field.split()
+                # Cari kata pertama dari bidang minat
                 for word in all_words:
-                    if field in word['text']:
-                        # Gunakan y0 sebagai referensi baris
+                    if word['text'] == field_words[0] and abs(len(word['text']) - len(field_words[0])) < 5:
                         field_coords_map[field] = word['y0']
                         break
             
             # Temukan koordinat (x-axis) dari setiap opsi
             option_coords_map = {}
             for option in interest_options:
+                option_words = option.split()
                 for word in all_words:
-                    if option in word['text']:
-                        # Gunakan x0 sebagai referensi kolom
+                    # Cek kata pertama dari opsi
+                    if word['text'] == option_words[0]:
                         option_coords_map[option] = word['x0']
                         break
                         
@@ -166,7 +170,7 @@ if uploaded_files:
         "Original Address", "Address", "Phone number",
         "ID Line/WA/etc", "Email address",
         "Human development", "Social awareness/people empowerment",
-        "Design and public relations"
+        "Design and public relations", "Exchange program and language", "Science and technology"
     ]
     df = df[new_column_order]
 
