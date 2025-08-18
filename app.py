@@ -1,6 +1,7 @@
 import streamlit as st
 import pdfplumber
 import pandas as pd
+import re
 
 # ====== CSS Custom UI Hijau ======
 st.markdown("""
@@ -56,8 +57,8 @@ header h1 {
 # ====== Header dengan Logo IAAS ======
 st.markdown(f"""
 <header>
-  <img src="https://raw.githubusercontent.com/faustusblack/ParsingIAAS/main/logo.png">
-  <h1>IAAS LC UNPAD – Rekap Data Formulir PDF</h1>
+    <img src="https://raw.githubusercontent.com/faustusblack/ParsingIAAS/main/logo.png">
+    <h1>IAAS LC UNPAD – Rekap Data Formulir PDF</h1>
 </header>
 """, unsafe_allow_html=True)
 
@@ -77,12 +78,50 @@ fields = [
 # ====== Parsing PDF ======
 if uploaded_files:
     all_data = []
+    
+    # Definisikan kolom untuk Field of Interest
+    interest_columns = ["Most Interested", "Interested", "Quite Interested", "Less Interested", "Not Interested"]
+    interest_fields = {
+        "Human development": "",
+        "Social awareness/people empowerment": "",
+        "Design and public relations": ""
+    }
+
     for uploaded_file in uploaded_files:
         form_data = {f.replace(" :", ""): "" for f in fields}
         form_data["File"] = uploaded_file.name
 
+        # Tambahkan kolom untuk 'Field of Interest'
+        form_data.update(interest_fields)
+
         with pdfplumber.open(uploaded_file) as pdf:
             text_all = "\n".join(page.extract_text() or "" for page in pdf.pages)
+            
+            # --- Bagian baru untuk parsing field of interest ---
+            
+            # Mendapatkan data teks dari tabel "FIELD OF INTEREST"
+            for page in pdf.pages:
+                tables = page.find_tables()
+                for table in tables:
+                    table_text = table.extract()
+                    if table_text and len(table_text) > 2 and "FIELD OF INTEREST" in table_text[0][0]:
+                        # Melewati header tabel
+                        for row in table_text[2:]: # Mulai dari baris ke-3 (setelah header)
+                            if not row[0]: # Lewati baris kosong
+                                continue
+                            field_name = row[0].replace("\n", " ").strip()
+                            
+                            # Cari tanda centang (✓) di setiap kolom
+                            for i, column_name in enumerate(interest_columns):
+                                # Pastikan indeks kolom tidak melebihi batas
+                                if i + 1 < len(row):
+                                    if "✓" in (row[i + 1] or ""):
+                                        # Simpan nama kolom yang memiliki centang
+                                        form_data[field_name] = column_name
+            
+            # --- Akhir bagian baru ---
+
+            # Parsing data personal seperti sebelumnya
             for f in fields:
                 for line in text_all.split("\n"):
                     if line.strip().startswith(f):
@@ -91,6 +130,17 @@ if uploaded_files:
         all_data.append(form_data)
 
     df = pd.DataFrame(all_data)
+
+    # Mengubah urutan kolom agar 'Field of Interest' muncul setelah 'Email address'
+    new_column_order = [
+        "File", "Full name", "Nickname", "NIM", "Faculty/Major/Batch",
+        "Place/date of birth", "Gender", "Current address",
+        "Original Address", "Address", "Phone number",
+        "ID Line/WA/etc", "Email address",
+        "Human development", "Social awareness/people empowerment",
+        "Design and public relations"
+    ]
+    df = df[new_column_order]
 
     # ====== Tampilkan Hasil ======
     st.subheader("📋 Hasil Rekap Data")
