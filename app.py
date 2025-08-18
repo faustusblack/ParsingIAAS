@@ -90,7 +90,7 @@ if uploaded_files:
     
     # Ambil daftar bidang dan opsi sebagai list
     interest_fields = list(interest_options_map.keys())
-    interest_options = interest_options_map[interest_fields[0]]
+    interest_options_header = interest_options_map[interest_fields[0]]
     
     for uploaded_file in uploaded_files:
         form_data = {f.replace(" :", ""): "" for f in fields}
@@ -102,14 +102,9 @@ if uploaded_files:
         with pdfplumber.open(uploaded_file) as pdf:
             text_all = "\n".join(page.extract_text() or "" for page in pdf.pages)
             
-            # --- Logika baru: Deteksi berdasarkan posisi (koordinat) kata dan simbol ---
+            # --- Logika baru: Deteksi berdasarkan posisi (koordinat) karakter dan string yang dibangun dari char ---
             
-            # Mendapatkan semua kata di halaman
-            all_words = []
-            for page in pdf.pages:
-                all_words.extend(page.extract_words())
-
-            # Mendapatkan semua karakter (untuk mencari tanda centang)
+            # Mendapatkan semua karakter dan posisinya dari setiap halaman
             all_chars = []
             for page in pdf.pages:
                 all_chars.extend(page.chars)
@@ -117,23 +112,19 @@ if uploaded_files:
             # Temukan koordinat (y-axis) dari setiap bidang minat
             field_coords_map = {}
             for field in interest_fields:
-                field_words = field.split()
-                # Cari kata pertama dari bidang minat
-                for word in all_words:
-                    if word['text'] == field_words[0] and abs(len(word['text']) - len(field_words[0])) < 5:
-                        field_coords_map[field] = word['y0']
-                        break
-            
-            # Temukan koordinat (x-axis) dari setiap opsi
+                field_chars = [c for c in all_chars if c['text'].strip() and c['text'] in field]
+                if field_chars:
+                    # Temukan posisi y0 dari karakter pertama dari bidang
+                    field_coords_map[field] = field_chars[0]['y0']
+
+            # Temukan koordinat (x-axis) dari setiap opsi header
             option_coords_map = {}
-            for option in interest_options:
-                option_words = option.split()
-                for word in all_words:
-                    # Cek kata pertama dari opsi
-                    if word['text'] == option_words[0]:
-                        option_coords_map[option] = word['x0']
-                        break
-                        
+            for option in interest_options_header:
+                option_chars = [c for c in all_chars if c['text'].strip() and c['text'] in option]
+                if option_chars:
+                    # Temukan posisi x0 dari karakter pertama dari opsi
+                    option_coords_map[option] = option_chars[0]['x0']
+
             # Cari tanda centang (✓) dan cocokkan dengan koordinat
             for char in all_chars:
                 if 'text' in char and char['text'] == '✓':
@@ -142,12 +133,10 @@ if uploaded_files:
 
                     # Cari baris (bidang minat) yang cocok dengan y-koordinat checkmark
                     for field, y_coord in field_coords_map.items():
-                        # Cek apakah y-koordinat checkmark berada dalam toleransi yang sama
                         if abs(checkmark_y - y_coord) < 10: # Toleransi vertikal
                             
                             # Cari kolom (opsi) yang cocok dengan x-koordinat checkmark
                             for option, x_coord in option_coords_map.items():
-                                # Cek apakah x-koordinat checkmark berada dalam toleransi yang sama
                                 if abs(checkmark_x - x_coord) < 20: # Toleransi horizontal
                                     form_data[field] = option
                                     break # Hentikan jika sudah menemukan opsi yang cocok
