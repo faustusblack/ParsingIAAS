@@ -86,9 +86,6 @@ if uploaded_files:
         "Design and public relations": ["Most Interested", "Interested", "Quite Interested", "Less Interested", "Not Interested"]
     }
     
-    # Kunci untuk data yang akan diekstrak
-    extraction_keys = list(fields) + list(interest_options.keys())
-
     for uploaded_file in uploaded_files:
         form_data = {f.replace(" :", ""): "" for f in fields}
         form_data["File"] = uploaded_file.name
@@ -97,20 +94,62 @@ if uploaded_files:
         form_data.update({k: "" for k in interest_options.keys()})
 
         with pdfplumber.open(uploaded_file) as pdf:
-            text_all = ""
-            for page in pdf.pages:
-                text_all += page.extract_text() or ""
-                
-                # --- Logika baru untuk deteksi checkbox ---
-                # Coba deteksi tanda centang (✓) di setiap halaman
-                for key, options in interest_options.items():
-                    # Mencari pola "Nama Bidang ✓"
-                    for option in options:
-                        pattern = re.compile(re.escape(key) + r'\s+' + re.escape(option) + r'\s*✓', re.IGNORECASE)
-                        if pattern.search(text_all):
-                            form_data[key] = option
-                            break # Hentikan pencarian jika sudah ditemukan
+            # Menggabungkan teks dari semua halaman
+            text_all = "\n".join(page.extract_text() or "" for page in pdf.pages)
             
+            # --- Logika baru: Deteksi berdasarkan koordinat karakter ---
+            
+            # Mendapatkan semua karakter dan posisinya dari setiap halaman
+            all_chars = []
+            for page in pdf.pages:
+                all_chars.extend(page.chars)
+
+            # Menemukan koordinat horizontal (x0) dari setiap opsi minat
+            # Ini akan membantu kita menentukan kolom mana yang dicentang
+            option_coords = {}
+            for option in interest_options["Human development"]:
+                # Cari koordinat kata kunci di dalam teks yang diekstrak
+                match = re.search(re.escape(option), text_all, re.IGNORECASE)
+                if match:
+                    # Mencari karakter pertama dari opsi untuk mendapatkan x0
+                    for char in all_chars:
+                        if char['text'] == option[0] and abs(char['x0'] - match.start()) < 50: # toleransi kecil
+                            option_coords[option] = char['x0']
+                            break
+            
+            # Menemukan koordinat vertikal (y0) dari setiap bidang minat
+            # Ini akan membantu kita menentukan baris mana yang dicentang
+            field_coords = {}
+            for field in interest_options.keys():
+                match = re.search(re.escape(field), text_all, re.IGNORECASE)
+                if match:
+                    # Mencari karakter pertama dari bidang untuk mendapatkan y0
+                    for char in all_chars:
+                        if char['text'] == field[0] and abs(char['y0'] - match.start()) < 50: # toleransi kecil
+                            field_coords[field] = char['y0']
+                            break
+
+            # Mencari tanda centang (✓) dan mencocokkan koordinatnya
+            for char in all_chars:
+                if char['text'] == '✓':
+                    checkmark_x = char['x0']
+                    checkmark_y = char['y0']
+
+                    # Cari bidang minat (baris) yang cocok dengan y0 checkmark
+                    for field, y_coord in field_coords.items():
+                        # Cek apakah y_coord checkmark berada dalam toleransi y_coord bidang minat
+                        if abs(checkmark_y - y_coord) < 10: # Toleransi vertikal
+                            
+                            # Cari opsi (kolom) yang cocok dengan x0 checkmark
+                            for option, x_coord in option_coords.items():
+                                # Cek apakah x_coord checkmark berada dalam toleransi x_coord opsi
+                                if abs(checkmark_x - x_coord) < 10: # Toleransi horizontal
+                                    form_data[field] = option
+                                    break # Hentikan jika sudah menemukan opsi yang cocok
+                            break # Hentikan jika sudah menemukan bidang yang cocok
+            
+            # --- Akhir logika baru ---
+
             # Parsing data personal seperti sebelumnya
             for f in fields:
                 for line in text_all.split("\n"):
