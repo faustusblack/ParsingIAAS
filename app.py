@@ -80,76 +80,75 @@ if uploaded_files:
     all_data = []
     
     # Definisikan Field of Interest dan opsi-opsinya
-    interest_options = {
+    interest_options_map = {
         "Human development": ["Most Interested", "Interested", "Quite Interested", "Less Interested", "Not Interested"],
         "Social awareness/people empowerment": ["Most Interested", "Interested", "Quite Interested", "Less Interested", "Not Interested"],
         "Design and public relations": ["Most Interested", "Interested", "Quite Interested", "Less Interested", "Not Interested"]
     }
+    
+    # Ambil daftar bidang dan opsi sebagai list
+    interest_fields = list(interest_options_map.keys())
+    interest_options = interest_options_map[interest_fields[0]]
     
     for uploaded_file in uploaded_files:
         form_data = {f.replace(" :", ""): "" for f in fields}
         form_data["File"] = uploaded_file.name
         
         # Tambahkan kolom untuk Field of Interest
-        form_data.update({k: "" for k in interest_options.keys()})
+        form_data.update({k: "" for k in interest_fields})
 
         with pdfplumber.open(uploaded_file) as pdf:
-            # Menggabungkan teks dari semua halaman
             text_all = "\n".join(page.extract_text() or "" for page in pdf.pages)
             
-            # --- Logika baru: Deteksi berdasarkan koordinat karakter ---
+            # --- Logika baru: Deteksi berdasarkan posisi (koordinat) kata dan simbol ---
             
-            # Mendapatkan semua karakter dan posisinya dari setiap halaman
+            # Mendapatkan semua kata di halaman
+            all_words = []
+            for page in pdf.pages:
+                all_words.extend(page.extract_words())
+
+            # Mendapatkan semua karakter (untuk mencari tanda centang)
             all_chars = []
             for page in pdf.pages:
                 all_chars.extend(page.chars)
 
-            # Menemukan koordinat horizontal (x0) dari setiap opsi minat
-            # Ini akan membantu kita menentukan kolom mana yang dicentang
-            option_coords = {}
-            for option in interest_options["Human development"]:
-                # Cari koordinat kata kunci di dalam teks yang diekstrak
-                match = re.search(re.escape(option), text_all, re.IGNORECASE)
-                if match:
-                    # Mencari karakter pertama dari opsi untuk mendapatkan x0
-                    for char in all_chars:
-                        if char['text'] == option[0] and abs(char['x0'] - match.start()) < 50: # toleransi kecil
-                            option_coords[option] = char['x0']
-                            break
+            # Temukan koordinat (y-axis) dari setiap bidang minat
+            field_coords_map = {}
+            for field in interest_fields:
+                for word in all_words:
+                    if field in word['text']:
+                        # Gunakan y0 sebagai referensi baris
+                        field_coords_map[field] = word['y0']
+                        break
             
-            # Menemukan koordinat vertikal (y0) dari setiap bidang minat
-            # Ini akan membantu kita menentukan baris mana yang dicentang
-            field_coords = {}
-            for field in interest_options.keys():
-                match = re.search(re.escape(field), text_all, re.IGNORECASE)
-                if match:
-                    # Mencari karakter pertama dari bidang untuk mendapatkan y0
-                    for char in all_chars:
-                        if char['text'] == field[0] and abs(char['y0'] - match.start()) < 50: # toleransi kecil
-                            field_coords[field] = char['y0']
-                            break
-
-            # Mencari tanda centang (✓) dan mencocokkan koordinatnya
+            # Temukan koordinat (x-axis) dari setiap opsi
+            option_coords_map = {}
+            for option in interest_options:
+                for word in all_words:
+                    if option in word['text']:
+                        # Gunakan x0 sebagai referensi kolom
+                        option_coords_map[option] = word['x0']
+                        break
+                        
+            # Cari tanda centang (✓) dan cocokkan dengan koordinat
             for char in all_chars:
-                if char['text'] == '✓':
+                if 'text' in char and char['text'] == '✓':
                     checkmark_x = char['x0']
                     checkmark_y = char['y0']
 
-                    # Cari bidang minat (baris) yang cocok dengan y0 checkmark
-                    for field, y_coord in field_coords.items():
-                        # Cek apakah y_coord checkmark berada dalam toleransi y_coord bidang minat
+                    # Cari baris (bidang minat) yang cocok dengan y-koordinat checkmark
+                    for field, y_coord in field_coords_map.items():
+                        # Cek apakah y-koordinat checkmark berada dalam toleransi yang sama
                         if abs(checkmark_y - y_coord) < 10: # Toleransi vertikal
                             
-                            # Cari opsi (kolom) yang cocok dengan x0 checkmark
-                            for option, x_coord in option_coords.items():
-                                # Cek apakah x_coord checkmark berada dalam toleransi x_coord opsi
-                                if abs(checkmark_x - x_coord) < 10: # Toleransi horizontal
+                            # Cari kolom (opsi) yang cocok dengan x-koordinat checkmark
+                            for option, x_coord in option_coords_map.items():
+                                # Cek apakah x-koordinat checkmark berada dalam toleransi yang sama
+                                if abs(checkmark_x - x_coord) < 20: # Toleransi horizontal
                                     form_data[field] = option
                                     break # Hentikan jika sudah menemukan opsi yang cocok
                             break # Hentikan jika sudah menemukan bidang yang cocok
             
-            # --- Akhir logika baru ---
-
             # Parsing data personal seperti sebelumnya
             for f in fields:
                 for line in text_all.split("\n"):
