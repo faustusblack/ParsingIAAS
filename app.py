@@ -1052,42 +1052,45 @@ visual_pdf = fitz.open(
     filetype="pdf"
 )
 
-for visual_page in visual_pdf:
+try:
 
-    page_text = visual_page.get_text().lower()
+    for visual_page in visual_pdf:
 
-    # Cari halaman yang mengandung Gender / Batch
-    if (
-        "gender" in page_text
-        or "batch / year of entry" in page_text
-    ):
+        page_text = visual_page.get_text().lower()
 
-        image = render_pdf_page(
-            visual_page,
-            zoom=3
-        )
+        if (
+            "gender" in page_text
+            or "batch / year of entry" in page_text
+        ):
 
-        detected_batch = detect_batch(
-            visual_page,
-            image
-        )
+            image = render_pdf_page(
+                visual_page,
+                zoom=3
+            )
 
-        detected_gender = detect_gender(
-            visual_page,
-            image
-        )
+            detected_batch = detect_batch(
+                visual_page,
+                image
+            )
 
-        if detected_batch:
-            biodata[
-                "Batch / Year of Entry"
-            ] = detected_batch
+            detected_gender = detect_gender(
+                visual_page,
+                image
+            )
 
-        if detected_gender:
-            biodata[
-                "Gender"
-            ] = detected_gender
+            if detected_batch:
+                biodata[
+                    "Batch / Year of Entry"
+                ] = detected_batch
 
-visual_pdf.close()
+            if detected_gender:
+                biodata[
+                    "Gender"
+                ] = detected_gender
+
+finally:
+
+    visual_pdf.close()
             
             # ---------------------------------------------
             # Interests
