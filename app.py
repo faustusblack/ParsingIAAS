@@ -229,6 +229,31 @@ def detect_batch(page, image):
 
     return ""
 
+def detect_living_arrangement(page, image):
+    """
+    Mendeteksi pilihan Current Living Arrangement
+    berdasarkan checkbox visual.
+    """
+
+    options = [
+        ("Family", "Living with family"),
+        ("Boarding", "Boarding house"),
+        ("Apartment", "Apartment"),
+        ("Dormitory", "Dormitory"),
+        ("Other", "Other")
+    ]
+
+    for word, result in options:
+
+        if detect_checkbox_before_word(
+            page,
+            image,
+            word
+        ):
+            return result
+
+    return ""
+
 # =========================================================
 # PAGE CONFIG
 # =========================================================
@@ -1078,6 +1103,11 @@ if uploaded_files:
                             image
                         )
 
+                        detected_living = detect_living_arrangement(
+                            visual_page,
+                            image
+                        )
+
                         if detected_batch:
                             biodata[
                                 "Batch / Year of Entry"
@@ -1087,6 +1117,11 @@ if uploaded_files:
                             biodata[
                                 "Gender"
                             ] = detected_gender
+                                                    
+                        if detected_living:
+                            biodata[
+                                "Current Living Arrangement"
+                            ] = detected_living
 
             finally:
 
