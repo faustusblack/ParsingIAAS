@@ -8,6 +8,228 @@ import numpy as np
 from io import BytesIO
 
 # =========================================================
+# CHECKBOX DETECTOR
+# =========================================================
+
+def render_pdf_page(page, zoom=3):
+    """
+    Mengubah halaman PDF menjadi gambar
+    agar checkbox bisa dianalisis secara visual.
+    """
+    matrix = fitz.Matrix(zoom, zoom)
+    pix = page.get_pixmap(
+        matrix=matrix,
+        alpha=False
+    )
+
+    img = np.frombuffer(
+        pix.samples,
+        dtype=np.uint8
+    )
+
+    img = img.reshape(
+        pix.height,
+        pix.width,
+        pix.n
+    )
+
+    if pix.n == 4:
+        img = cv2.cvtColor(
+            img,
+            cv2.COLOR_RGBA2BGR
+        )
+    else:
+        img = cv2.cvtColor(
+            img,
+            cv2.COLOR_RGB2BGR
+        )
+
+    return img
+
+
+def get_word_position(page, target_word):
+    """
+    Mencari posisi kata tertentu di PDF.
+    """
+
+    words = page.get_text("words")
+
+    target_word = target_word.lower()
+
+    for word in words:
+
+        word_text = word[4].strip().lower()
+
+        if word_text == target_word:
+            return word
+
+    return None
+
+
+def checkbox_score(
+    image,
+    x0,
+    y0,
+    x1,
+    y1
+):
+    """
+    Mengukur seberapa banyak tinta hitam
+    berada di area checkbox.
+    """
+
+    h, w = image.shape[:2]
+
+    x0 = max(0, int(x0))
+    y0 = max(0, int(y0))
+    x1 = min(w, int(x1))
+    y1 = min(h, int(y1))
+
+    if x1 <= x0 or y1 <= y0:
+        return 0
+
+    crop = image[
+        y0:y1,
+        x0:x1
+    ]
+
+    gray = cv2.cvtColor(
+        crop,
+        cv2.COLOR_BGR2GRAY
+    )
+
+    _, binary = cv2.threshold(
+        gray,
+        180,
+        255,
+        cv2.THRESH_BINARY_INV
+    )
+
+    # Hitung jumlah pixel gelap
+    dark_pixels = np.sum(
+        binary > 0
+    )
+
+    total_pixels = binary.size
+
+    if total_pixels == 0:
+        return 0
+
+    return dark_pixels / total_pixels
+
+
+def detect_checkbox_before_word(
+    page,
+    image,
+    target_word,
+    zoom=3
+):
+    """
+    Mendeteksi apakah checkbox sebelum
+    kata tertentu terisi.
+
+    Contoh:
+
+    [☑] Male
+       ↑
+       checkbox berada di sebelah kiri kata
+    """
+
+    word = get_word_position(
+        page,
+        target_word
+    )
+
+    if word is None:
+        return False
+
+    # Koordinat PDF
+    word_x0 = word[0]
+    word_y0 = word[1]
+    word_x1 = word[2]
+    word_y1 = word[3]
+
+    # Konversi ke koordinat gambar
+    x0 = word_x0 * zoom
+    y0 = word_y0 * zoom
+    x1 = word_x1 * zoom
+    y1 = word_y1 * zoom
+
+    word_height = y1 - y0
+
+    # Checkbox diperkirakan berada
+    # sedikit di sebelah kiri label
+    box_size = word_height * 0.9
+
+    box_x1 = x0 - 5
+    box_x0 = box_x1 - box_size
+
+    box_y0 = (
+        y0 +
+        (word_height - box_size) / 2
+    )
+
+    box_y1 = box_y0 + box_size
+
+    score = checkbox_score(
+        image,
+        box_x0,
+        box_y0,
+        box_x1,
+        box_y1
+    )
+
+    # threshold awal
+    return score > 0.18
+
+
+def detect_gender(page, image):
+    """
+    Mendeteksi pilihan Gender.
+    """
+
+    options = [
+        ("Female", "Female"),
+        ("Male", "Male"),
+        ("Other", "Other"),
+        ("Prefer", "Prefer not to say")
+    ]
+
+    for word, result in options:
+
+        if detect_checkbox_before_word(
+            page,
+            image,
+            word
+        ):
+            return result
+
+    return ""
+
+
+def detect_batch(page, image):
+    """
+    Mendeteksi Batch / Year of Entry.
+    """
+
+    years = [
+        "2024",
+        "2025",
+        "2026"
+    ]
+
+    for year in years:
+
+        if detect_checkbox_before_word(
+            page,
+            image,
+            year
+        ):
+            return year
+
+    return ""
+
+# =========================================================
 # PAGE CONFIG
 # =========================================================
 
@@ -821,6 +1043,52 @@ if uploaded_files:
                 text
             )
 
+            # ---------------------------------------------
+# Visual Checkbox Detection
+# ---------------------------------------------
+
+visual_pdf = fitz.open(
+    stream=file_bytes,
+    filetype="pdf"
+)
+
+for visual_page in visual_pdf:
+
+    page_text = visual_page.get_text().lower()
+
+    # Cari halaman yang mengandung Gender / Batch
+    if (
+        "gender" in page_text
+        or "batch / year of entry" in page_text
+    ):
+
+        image = render_pdf_page(
+            visual_page,
+            zoom=3
+        )
+
+        detected_batch = detect_batch(
+            visual_page,
+            image
+        )
+
+        detected_gender = detect_gender(
+            visual_page,
+            image
+        )
+
+        if detected_batch:
+            biodata[
+                "Batch / Year of Entry"
+            ] = detected_batch
+
+        if detected_gender:
+            biodata[
+                "Gender"
+            ] = detected_gender
+
+visual_pdf.close()
+            
             # ---------------------------------------------
             # Interests
             # ---------------------------------------------
