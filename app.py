@@ -88,13 +88,9 @@ div[data-testid="stDataFrame"] {
 
 st.markdown("""
 <div class="header-container">
-
     <img src="https://raw.githubusercontent.com/faustusblack/ParsingIAAS/main/logo.png">
-
     <h1>IAAS LC UNPAD</h1>
-
     <p>Registration Form Data Parser</p>
-
 </div>
 """, unsafe_allow_html=True)
 
