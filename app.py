@@ -2,6 +2,9 @@ import streamlit as st
 import pdfplumber
 import pandas as pd
 import re
+import fitz
+import cv2
+import numpy as np
 from io import BytesIO
 
 # =========================================================
