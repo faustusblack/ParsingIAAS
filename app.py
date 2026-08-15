@@ -1043,54 +1043,54 @@ if uploaded_files:
                 text
             )
 
+                       # ---------------------------------------------
+            # Visual Checkbox Detection
             # ---------------------------------------------
-# Visual Checkbox Detection
-# ---------------------------------------------
 
-visual_pdf = fitz.open(
-    stream=file_bytes,
-    filetype="pdf"
-)
-
-try:
-
-    for visual_page in visual_pdf:
-
-        page_text = visual_page.get_text().lower()
-
-        if (
-            "gender" in page_text
-            or "batch / year of entry" in page_text
-        ):
-
-            image = render_pdf_page(
-                visual_page,
-                zoom=3
+            visual_pdf = fitz.open(
+                stream=file_bytes,
+                filetype="pdf"
             )
 
-            detected_batch = detect_batch(
-                visual_page,
-                image
-            )
+            try:
 
-            detected_gender = detect_gender(
-                visual_page,
-                image
-            )
+                for visual_page in visual_pdf:
 
-            if detected_batch:
-                biodata[
-                    "Batch / Year of Entry"
-                ] = detected_batch
+                    page_text = visual_page.get_text().lower()
 
-            if detected_gender:
-                biodata[
-                    "Gender"
-                ] = detected_gender
+                    if (
+                        "gender" in page_text
+                        or "batch / year of entry" in page_text
+                    ):
 
-finally:
+                        image = render_pdf_page(
+                            visual_page,
+                            zoom=3
+                        )
 
-    visual_pdf.close()
+                        detected_batch = detect_batch(
+                            visual_page,
+                            image
+                        )
+
+                        detected_gender = detect_gender(
+                            visual_page,
+                            image
+                        )
+
+                        if detected_batch:
+                            biodata[
+                                "Batch / Year of Entry"
+                            ] = detected_batch
+
+                        if detected_gender:
+                            biodata[
+                                "Gender"
+                            ] = detected_gender
+
+            finally:
+
+                visual_pdf.close()
             
             # ---------------------------------------------
             # Interests
